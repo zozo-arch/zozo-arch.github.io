@@ -358,7 +358,7 @@
     <!-- 顶部标题 -->
     <div class="header">
         <h1>EXPREDOM</h1>
-        <div class="tagline">每一个思绪，都值得分享交流</div>
+        <div class="tagline">每一个思绪，都可以分享</div>
     </div>
 
     <!-- 登录框 -->
@@ -645,7 +645,8 @@
             const replySnap = await db.collection("replies").where("postId", "==", postId).get();
             replySnap.forEach(doc => {
                 const r = doc.data();
-                if (currentUser === r.from || currentUser === postAuthor) {
+                // 留言者(commentFrom) 或 帖子作者(postAuthor) 才能看到该回复
+                if (currentUser === r.commentFrom || currentUser === postAuthor) {
                     if (!repliesMap[r.commentId]) repliesMap[r.commentId] = [];
                     repliesMap[r.commentId].push(r);
                 }
@@ -676,7 +677,7 @@
                     ${replies.map(r => `
                         <div class="reply-item">
                             <div class="reply-from">${escapeHtml(r.from)}</div>
-                            <div>${escapeHtml(r.content)}</div>
+                            <div class="reply-text">${escapeHtml(r.content)}</div>
                         </div>`).join('')}
                 </div>
                 <div id="replyInput_${cmtId}" class="reply-input-row hide">
@@ -708,9 +709,13 @@
         const content = input.value.trim();
         if (!content) { alert("回复不能为空！"); return; }
         input.value = "";
+        // 取得留言者昵称，存入回复，用于可见性判断
+        const cmtDoc = await db.collection("comments").doc(cmtId).get();
+        const commentFrom = cmtDoc.exists ? cmtDoc.data().from : "";
         await db.collection("replies").add({
             postId,
             commentId: cmtId,
+            commentFrom,   // 留言者，用于判断谁能看到这条回复
             from: currentUser,
             content,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
