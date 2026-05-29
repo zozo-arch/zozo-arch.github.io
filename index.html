@@ -636,22 +636,23 @@
         if (!postDoc.exists) return;
         const postAuthor = postDoc.data().author;
 
-        // 同时拉取留言和回复
-        const [cmtSnap, replySnap] = await Promise.all([
-            db.collection("comments").where("postId", "==", postId).get(),
-            db.collection("replies").where("postId", "==", postId).get()
-        ]);
+        // 拉取留言
+        const cmtSnap = await db.collection("comments").where("postId", "==", postId).get();
 
-        // 把回复按 commentId 分组
+        // 安全拉取回复（集合不存在时不崩溃）
         const repliesMap = {};
-        replySnap.forEach(doc => {
-            const r = doc.data();
-            // 只有留言双方可见回复
-            if (currentUser === r.from || currentUser === postAuthor) {
-                if (!repliesMap[r.commentId]) repliesMap[r.commentId] = [];
-                repliesMap[r.commentId].push(r);
-            }
-        });
+        try {
+            const replySnap = await db.collection("replies").where("postId", "==", postId).get();
+            replySnap.forEach(doc => {
+                const r = doc.data();
+                if (currentUser === r.from || currentUser === postAuthor) {
+                    if (!repliesMap[r.commentId]) repliesMap[r.commentId] = [];
+                    repliesMap[r.commentId].push(r);
+                }
+            });
+        } catch(e) {
+            // replies集合尚不存在，忽略错误，继续显示留言
+        }
 
         box.innerHTML = "";
         let hasVisible = false;
