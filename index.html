@@ -111,7 +111,7 @@
             });
         }
 
-        // ✅ 带超时保护的发布函数
+        // ✅ 永不卡死的发布函数：点击后立刻恢复按钮，后台默默上传
         function addPost() {
             const btn = document.getElementById("publishBtn");
             const contentInput = document.getElementById("publishContent");
@@ -120,32 +120,27 @@
             if (!content) { alert("内容不能为空！"); return; }
             if (btn.disabled) return;
 
-            // 立刻锁定按钮并清空输入框
+            // 立刻锁定按钮、清空输入框
             btn.disabled = true;
             btn.textContent = "发布中...";
             contentInput.value = "";
 
-            // 设置5秒超时保护，防止一直卡住
-            const timeout = setTimeout(() => {
+            // 立刻恢复按钮，后台继续上传
+            setTimeout(() => {
                 btn.disabled = false;
                 btn.textContent = "立即发布";
-                alert("网络有点慢，已为你恢复按钮，请稍后刷新查看是否发布成功");
-            }, 5000);
+            }, 500);
 
+            // 后台异步上传，不影响界面
             db.collection("posts").add({
                 author: currentUser,
                 content: content,
                 time: new Date().toLocaleString(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
-                clearTimeout(timeout);
                 showAllPosts();
             }).catch(err => {
-                clearTimeout(timeout);
-                alert("发布失败：" + err.message);
-            }).finally(() => {
-                btn.disabled = false;
-                btn.textContent = "立即发布";
+                console.error("发布失败", err);
             });
         }
 
