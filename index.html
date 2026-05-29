@@ -87,7 +87,12 @@
             font-size: 16px;
             cursor: pointer;
         }
-        button:active {
+        button:disabled {
+            background: #eee;
+            color: #666;
+            cursor: not-allowed;
+        }
+        button:active:not(:disabled) {
             background: #f0f0f0;
         }
         .post-item {
@@ -140,7 +145,7 @@
         <div class="publish-box">
             <h3>发布新分享</h3>
             <textarea id="publishContent" rows="3" placeholder="记录日常、心情、想法..."></textarea>
-            <button onclick="addPost()">立即发布</button>
+            <button id="publishBtn" onclick="addPost()">立即发布</button>
         </div>
         <div id="postList"></div>
     </div>
@@ -174,27 +179,41 @@
             loadAllPosts();
         }
 
-        // ✅ 修复发布按钮（核心修复在这里！）
+        // ✅ 核心修复：防重复发布 + 按钮锁定 + 加载提示
         async function addPost() {
-            try {
-                const content = document.getElementById("publishContent").value.trim();
-                if (!content) {
-                    alert("内容不能为空！");
-                    return;
-                }
-                const time = new Date().toLocaleString();
+            const btn = document.getElementById("publishBtn");
+            const contentInput = document.getElementById("publishContent");
 
+            // 已禁用就直接返回，防止重复执行
+            if (btn.disabled) return;
+
+            const content = contentInput.value.trim();
+            if (!content) {
+                alert("内容不能为空！");
+                return;
+            }
+
+            try {
+                // 立即锁定按钮
+                btn.disabled = true;
+                btn.textContent = "发布中...";
+
+                const time = new Date().toLocaleString();
                 await db.collection("posts").add({
                     author: currentUser,
                     content: content,
                     time: time
                 });
 
-                document.getElementById("publishContent").value = "";
+                contentInput.value = "";
                 loadAllPosts();
             } catch (err) {
                 alert("发布失败：" + err.message);
                 console.error(err);
+            } finally {
+                // 无论成功失败，都恢复按钮
+                btn.disabled = false;
+                btn.textContent = "立即发布";
             }
         }
 
@@ -209,7 +228,6 @@
                 snapshot.forEach(doc => {
                     posts.push({ id: doc.id, ...doc.data() });
                 });
-
                 posts.reverse();
 
                 posts.forEach(async (post) => {
