@@ -17,7 +17,7 @@
         .header p {font-size:20px;font-weight:bold}
         .login-box,.publish-box {padding:16px;margin-bottom:12px}
         input,textarea {width:100%;padding:14px;margin:6px 0;border:1px solid #000;border-radius:8px;font-size:16px;background:#fff}
-        button {width:100%;padding:14px;border:1px solid #000;border-radius:8px;background:#fff;font-size:16px}
+        button {width:100%;padding:14px;border:1px solid #000;border-radius:8px;background:#fff;font-size:16px;margin-bottom:8px}
         button:disabled {background:#eee;color:#666}
         .post-item {padding:16px;margin-bottom:12px}
         .comment-area {margin-top:12px;padding-top:12px;border-top:1px dashed #000}
@@ -38,6 +38,9 @@
             <h3>发布新分享</h3>
             <textarea id="publishContent" rows="3" placeholder="记录心情..."></textarea>
             <button id="publishBtn" onclick="addPost()">立即发布</button>
+            <!-- ✅ 新增：我的历史按钮 -->
+            <button onclick="showMyHistory()">我的历史（只看自己）</button>
+            <button onclick="showAllPosts()">查看全部分享</button>
         </div>
         <div id="postList"></div>
     </div>
@@ -64,34 +67,39 @@
             currentUser = name;
             document.getElementById("loginBox").classList.add("hide");
             document.getElementById("mainPage").classList.remove("hide");
-            // ✅ 一登录就自动加载所有历史分享
-            startListenPosts();
+            showAllPosts();
         }
 
-        // ✅【核心修复】实时监听帖子：重进、刷新、别人发都能看见
-        function startListenPosts() {
-            db.collection("posts").orderBy("createdAt", "desc").onSnapshot(snapshot => {
-                const postList = document.getElementById("postList");
-                postList.innerHTML = "";
-                snapshot.forEach(doc => {
-                    const post = doc.data();
-                    const postId = doc.id;
-                    postList.innerHTML += `
-                    <div class="post-item">
-                        <div><b>${post.author}</b> · ${post.time}</div>
-                        <div style="margin:8px 0">${post.content}</div>
-                        <div class="comment-area">
-                            <textarea id="cmt_${postId}" placeholder="写下私密留言"></textarea>
-                            <button onclick="addComment('${postId}')">发送留言</button>
-                            <div id="cmtBox_${postId}"></div>
-                        </div>
-                    </div>`;
-                    listenComments(postId);
-                });
+        // ✅ 显示全部帖子
+        async function showAllPosts() {
+            const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
+            renderPosts(snapshot);
+        }
+
+        // ✅【核心功能】只显示当前用户自己的历史
+        async function showMyHistory() {
+            const snapshot = await db.collection("posts")
+                .where("author", "==", currentUser)
+                .orderBy("createdAt", "desc")
+                .get();
+            renderPosts(snapshot);
+        }
+
+        // 统一渲染列表
+        function renderPosts(snapshot) {
+            const postList = document.getElementById("postList");
+            postList.innerHTML = "";
+            snapshot.forEach(doc => {
+                const post = doc.data();
+                postList.innerHTML += `
+                <div class="post-item">
+                    <div><b>${post.author}</b> · ${post.time}</div>
+                    <div style="margin:8px 0">${post.content}</div>
+                </div>`;
             });
         }
 
-        // ✅ 发布（本地秒响应）
+        // 发布（立即响应）
         function addPost() {
             const btn = document.getElementById("publishBtn");
             const contentInput = document.getElementById("publishContent");
@@ -109,32 +117,11 @@
                 content: content,
                 time: new Date().toLocaleString(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).catch(err => {
-                alert("发布失败：" + err.message);
+            }).then(() => {
+                showAllPosts();
             }).finally(() => {
                 btn.disabled = false;
                 btn.textContent = "立即发布";
-            });
-        }
-
-        // 留言
-        async function addComment(postId) {
-            const input = document.getElementById(`cmt_${postId}`);
-            const content = input.value.trim();
-            if (!content) { alert("留言不能为空！"); return; }
-            input.value = "";
-            await db.collection("comments").add({ postId, from: currentUser, content });
-        }
-
-        // 实时留言
-        function listenComments(postId) {
-            db.collection("comments").where("postId", "==", postId).onSnapshot(snapshot => {
-                const box = document.getElementById(`cmtBox_${postId}`);
-                box.innerHTML = "";
-                snapshot.forEach(doc => {
-                    const cmt = doc.data();
-                    box.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
-                });
             });
         }
     </script>
