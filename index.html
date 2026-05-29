@@ -245,6 +245,51 @@
         }
         .comment-text { color: var(--ink); }
 
+        /* 回复按钮 */
+        .reply-btn {
+            background: none; border: none;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 11px;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 4px 0 0 0;
+            letter-spacing: 0.3px;
+            display: block;
+        }
+        .reply-btn:hover { color: var(--accent); }
+
+        /* 回复输入框（缩进，区别于主留言） */
+        .reply-input-row {
+            display: flex; gap: 8px; align-items: flex-end;
+            margin-top: 8px;
+            padding-left: 14px;
+            border-left: 2px solid var(--border);
+        }
+        .reply-input-row textarea {
+            flex: 1; margin: 0;
+            font-size: 13px;
+            padding: 8px 12px;
+            min-height: 38px;
+            max-height: 80px;
+        }
+
+        /* 回复条目（比留言更缩进） */
+        .reply-item {
+            margin-top: 6px;
+            margin-left: 14px;
+            padding: 8px 12px;
+            background: rgba(237,232,220,0.6);
+            border-left: 2px solid var(--border);
+            font-size: 12px;
+            line-height: 1.5;
+            border-radius: 0 2px 2px 0;
+        }
+        .reply-from {
+            font-size: 11px; font-weight: 500;
+            color: var(--muted);
+            margin-bottom: 2px;
+        }
+
         .comment-input-row {
             display: flex; gap: 8px; align-items: flex-end;
             margin-top: 10px;
@@ -313,7 +358,7 @@
     <!-- 顶部标题 -->
     <div class="header">
         <h1>EXPREDOM</h1>
-        <div class="tagline">每一个思绪，都值得分享</div>
+        <div class="tagline">每一个思绪，都值得分享交流</div>
     </div>
 
     <!-- 登录框 -->
@@ -582,37 +627,95 @@
         loadComments(postId);
     }
 
-    // ─── 加载留言（修复异步 Bug）──────────────────────────────────
+    // ─── 加载留言 + 回复 ─────────────────────────────────────────
     async function loadComments(postId) {
         const box = document.getElementById(`cmtBox_${postId}`);
         if (!box) return;
 
-        // ✅ 先获取帖子作者（await 修复原来的 Bug）
         const postDoc = await db.collection("posts").doc(postId).get();
         if (!postDoc.exists) return;
         const postAuthor = postDoc.data().author;
 
-        const snapshot = await db.collection("comments")
-            .where("postId", "==", postId)
-            .get();
+        // 同时拉取留言和回复
+        const [cmtSnap, replySnap] = await Promise.all([
+            db.collection("comments").where("postId", "==", postId).get(),
+            db.collection("replies").where("postId", "==", postId).get()
+        ]);
+
+        // 把回复按 commentId 分组
+        const repliesMap = {};
+        replySnap.forEach(doc => {
+            const r = doc.data();
+            // 只有留言双方可见回复
+            if (currentUser === r.from || currentUser === postAuthor) {
+                if (!repliesMap[r.commentId]) repliesMap[r.commentId] = [];
+                repliesMap[r.commentId].push(r);
+            }
+        });
 
         box.innerHTML = "";
         let hasVisible = false;
-        snapshot.forEach(doc => {
+
+        cmtSnap.forEach(doc => {
             const cmt = doc.data();
-            // 只有"留言者本人"或"帖子作者"才能看到这条留言
-            if (currentUser === cmt.from || currentUser === postAuthor) {
-                hasVisible = true;
-                box.innerHTML += `
-                    <div class="comment-item">
-                        <div class="comment-from">${escapeHtml(cmt.from)}</div>
-                        <div class="comment-text">${escapeHtml(cmt.content)}</div>
-                    </div>`;
-            }
+            const cmtId = doc.id;
+            if (currentUser !== cmt.from && currentUser !== postAuthor) return;
+
+            hasVisible = true;
+            const replies = repliesMap[cmtId] || [];
+
+            // 渲染留言
+            const cmtDiv = document.createElement("div");
+            cmtDiv.className = "comment-item";
+            cmtDiv.innerHTML = `
+                <div class="comment-from">${escapeHtml(cmt.from)}</div>
+                <div class="comment-text">${escapeHtml(cmt.content)}</div>
+                <button class="reply-btn" onclick="toggleReplyInput('${cmtId}', '${postId}', this)">↩ 回复</button>
+                <div id="replies_${cmtId}">
+                    ${replies.map(r => `
+                        <div class="reply-item">
+                            <div class="reply-from">${escapeHtml(r.from)}</div>
+                            <div>${escapeHtml(r.content)}</div>
+                        </div>`).join('')}
+                </div>
+                <div id="replyInput_${cmtId}" class="reply-input-row hide">
+                    <textarea id="replyTxt_${cmtId}" placeholder="回复 ${escapeHtml(cmt.from)}…" rows="1"></textarea>
+                    <button class="btn btn-sm" onclick="sendReply('${cmtId}', '${postId}')">发送</button>
+                </div>`;
+            box.appendChild(cmtDiv);
         });
+
         if (!hasVisible) {
             box.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:6px 0;">还没有留言</div>`;
         }
+    }
+
+    // ─── 展开/收起回复输入框 ──────────────────────────────────────
+    function toggleReplyInput(cmtId, postId, btn) {
+        const row = document.getElementById(`replyInput_${cmtId}`);
+        const isHidden = row.classList.contains("hide");
+        row.classList.toggle("hide", !isHidden);
+        btn.textContent = isHidden ? "↩ 取消" : "↩ 回复";
+        if (isHidden) {
+            document.getElementById(`replyTxt_${cmtId}`).focus();
+        }
+    }
+
+    // ─── 发送回复 ─────────────────────────────────────────────────
+    async function sendReply(cmtId, postId) {
+        const input = document.getElementById(`replyTxt_${cmtId}`);
+        const content = input.value.trim();
+        if (!content) { alert("回复不能为空！"); return; }
+        input.value = "";
+        await db.collection("replies").add({
+            postId,
+            commentId: cmtId,
+            from: currentUser,
+            content,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // 刷新当前留言区
+        loadComments(postId);
     }
 </script>
 
