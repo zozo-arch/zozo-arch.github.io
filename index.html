@@ -64,10 +64,34 @@
             currentUser = name;
             document.getElementById("loginBox").classList.add("hide");
             document.getElementById("mainPage").classList.remove("hide");
-            loadAllPosts();
+            // ✅ 一登录就自动加载所有历史分享
+            startListenPosts();
         }
 
-        // ✅【终极不卡、不重复、秒响应】发布
+        // ✅【核心修复】实时监听帖子：重进、刷新、别人发都能看见
+        function startListenPosts() {
+            db.collection("posts").orderBy("createdAt", "desc").onSnapshot(snapshot => {
+                const postList = document.getElementById("postList");
+                postList.innerHTML = "";
+                snapshot.forEach(doc => {
+                    const post = doc.data();
+                    const postId = doc.id;
+                    postList.innerHTML += `
+                    <div class="post-item">
+                        <div><b>${post.author}</b> · ${post.time}</div>
+                        <div style="margin:8px 0">${post.content}</div>
+                        <div class="comment-area">
+                            <textarea id="cmt_${postId}" placeholder="写下私密留言"></textarea>
+                            <button onclick="addComment('${postId}')">发送留言</button>
+                            <div id="cmtBox_${postId}"></div>
+                        </div>
+                    </div>`;
+                    listenComments(postId);
+                });
+            });
+        }
+
+        // ✅ 发布（本地秒响应）
         function addPost() {
             const btn = document.getElementById("publishBtn");
             const contentInput = document.getElementById("publishContent");
@@ -76,7 +100,6 @@
             if (!content) { alert("内容不能为空！"); return; }
             if (btn.disabled) return;
 
-            // 立即本地响应
             btn.disabled = true;
             btn.textContent = "发布中...";
             contentInput.value = "";
@@ -84,9 +107,8 @@
             db.collection("posts").add({
                 author: currentUser,
                 content: content,
-                time: new Date().toLocaleString()
-            }).then(() => {
-                loadAllPosts();
+                time: new Date().toLocaleString(),
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(err => {
                 alert("发布失败：" + err.message);
             }).finally(() => {
@@ -95,47 +117,24 @@
             });
         }
 
-        // 加载帖子
-        async function loadAllPosts() {
-            const snapshot = await db.collection("posts").get();
-            const list = [];
-            snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-            list.reverse();
-
-            const postList = document.getElementById("postList");
-            postList.innerHTML = "";
-            list.forEach(post => {
-                postList.innerHTML += `
-                <div class="post-item">
-                    <div><b>${post.author}</b> · ${post.time}</div>
-                    <div style="margin:8px 0">${post.content}</div>
-                    <div class="comment-area">
-                        <textarea id="cmt_${post.id}" placeholder="写下私密留言"></textarea>
-                        <button onclick="addComment('${post.id}')">发送留言</button>
-                        <div id="cmtBox_${post.id}"></div>
-                    </div>
-                </div>`;
-                loadComments(post.id);
-            });
-        }
-
-        // ✅ 留言也不卡
+        // 留言
         async function addComment(postId) {
             const input = document.getElementById(`cmt_${postId}`);
             const content = input.value.trim();
             if (!content) { alert("留言不能为空！"); return; }
             input.value = "";
             await db.collection("comments").add({ postId, from: currentUser, content });
-            loadComments(postId);
         }
 
-        async function loadComments(postId) {
-            const snapshot = await db.collection("comments").where("postId", "==", postId).get();
-            const box = document.getElementById(`cmtBox_${postId}`);
-            box.innerHTML = "";
-            snapshot.forEach(doc => {
-                const cmt = doc.data();
-                box.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
+        // 实时留言
+        function listenComments(postId) {
+            db.collection("comments").where("postId", "==", postId).onSnapshot(snapshot => {
+                const box = document.getElementById(`cmtBox_${postId}`);
+                box.innerHTML = "";
+                snapshot.forEach(doc => {
+                    const cmt = doc.data();
+                    box.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
+                });
             });
         }
     </script>
