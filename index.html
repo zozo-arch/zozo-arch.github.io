@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="light">
-    <title>日常分享空间</title>
+    <title>EXPREDOM</title>
+    <!-- 引入Firebase官方SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
     <style>
         * {
             margin: 0;
@@ -21,7 +24,6 @@
             overflow-x: hidden;
             padding: 16px;
         }
-        /* 背景兼容样式不变 */
         body::before {
             content: "";
             position: fixed;
@@ -37,7 +39,6 @@
             z-index: -1;
             -webkit-background-size: 100% 100%;
         }
-        /* 容器：白底 + 黑色边框 */
         .header, .login-box, .publish-box, .post-item, .comment-item {
             background: #ffffff;
             border: 1px solid #000000;
@@ -63,7 +64,6 @@
             font-size: 17px;
             margin-bottom: 10px;
         }
-        /* 输入框、文本域：白底黑边框黑字 */
         input, textarea {
             width: 100%;
             padding: 14px;
@@ -75,7 +75,6 @@
             background: #ffffff;
             outline: none;
         }
-        /* 按钮：白底黑边框黑字 */
         button {
             width: 100%;
             padding: 14px;
@@ -116,7 +115,6 @@
             font-size: 15px;
             box-shadow: none;
         }
-        /* 底部提示文字 */
         .footer-tip {
             text-align: center;
             margin-top: 30px;
@@ -146,17 +144,28 @@
             <textarea id="publishContent" rows="3" placeholder="记录日常、心情、想法..."></textarea>
             <button onclick="addPost()">立即发布</button>
         </div>
-
         <div id="postList"></div>
     </div>
 
-    <!-- 底部提示添加前缀符号 -->
     <div class="footer-tip">ღ留言仅作者与留言人双方可见</div>
 
     <script>
-        let currentUser = "";
-        let postData = JSON.parse(localStorage.getItem("sharePosts")) || [];
+        // ========= 【重点】粘贴你之前复制的 Firebase 配置代码 =========
+        const firebaseConfig = {
+          apiKey: "AIzaSyCp5d6c5qMgVJYWigy6WGa7cSAhQTdRI8s",
+          authDomain: "expredom-f600d.firebaseapp.com",
+          projectId: "expredom-f600d",
+          storageBucket: "expredom-f600d.firebasestorage.app",
+          messagingSenderId: "981038975048",
+          appId: "1:981038975048:web:3fdc69d5f15298d01d707d"
+        };
 
+        // 初始化 Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        let currentUser = "";
+
+        // 昵称登录
         function login() {
             const name = document.getElementById("username").value.trim();
             if (!name) {
@@ -166,78 +175,83 @@
             currentUser = name;
             document.getElementById("loginBox").classList.add("hide");
             document.getElementById("mainPage").classList.remove("hide");
-            renderPosts();
+            loadAllPosts();
         }
 
-        function addPost() {
+        // 发布分享内容
+        async function addPost() {
             const content = document.getElementById("publishContent").value.trim();
             if (!content) {
                 alert("内容不能为空！");
                 return;
             }
-            const newPost = {
-                id: Date.now(),
+            const time = new Date().toLocaleString();
+            await db.collection("posts").add({
                 author: currentUser,
                 content: content,
-                time: new Date().toLocaleString(),
-                comments: []
-            };
-            postData.unshift(newPost);
-            saveData();
+                time: time,
+                createTime: firebase.firestore.FieldValue.serverTimestamp()
+            });
             document.getElementById("publishContent").value = "";
-            renderPosts();
-            window.scrollTo(0, 0);
+            loadAllPosts();
         }
 
-        function saveData() {
-            localStorage.setItem("sharePosts", JSON.stringify(postData));
-        }
-
-        function renderPosts() {
+        // 加载所有分享
+        async function loadAllPosts() {
             const listDom = document.getElementById("postList");
             listDom.innerHTML = "";
-            postData.forEach(post => {
-                const postDom = document.createElement("div");
-                postDom.className = "post-item";
+            // 按发布时间倒序展示
+            const snapshot = await db.collection("posts").orderBy("createTime", "desc").get();
+            snapshot.forEach(async (doc) => {
+                const postId = doc.id;
+                const postData = doc.data();
                 let html = `
-                    <div class="post-author">${post.author} · ${post.time}</div>
-                    <div class="post-content">${post.content}</div>
-                    <div class="comment-area">
-                        <textarea id="comment_${post.id}" rows="2" placeholder="写下私密留言"></textarea>
-                        <button onclick="addComment(${post.id})">发送留言</button>
+                    <div class="post-item">
+                        <div class="post-author">${postData.author} · ${postData.time}</div>
+                        <div class="post-content">${postData.content}</div>
+                        <div class="comment-area">
+                            <textarea id="cmt_${postId}" rows="2" placeholder="写下私密留言"></textarea>
+                            <button onclick="addComment('${postId}')">发送留言</button>
+                            <div id="cmtList_${postId}"></div>
+                        </div>
+                    </div>
                 `;
-                post.comments.forEach(cm => {
-                    if (currentUser === post.author || currentUser === cm.from) {
-                        html += `
-                            <div class="comment-item">
-                                ${cm.from}：${cm.content}
-                            </div>
-                        `;
-                    }
-                });
-                html += `</div>`;
-                postDom.innerHTML = html;
-                listDom.appendChild(postDom);
+                listDom.innerHTML += html;
+                // 加载对应留言
+                loadComment(postId, postData.author);
             });
         }
 
-        function addComment(postId) {
-            const post = postData.find(p => p.id === postId);
-            if (!postId) return;
-            const cmtInput = document.getElementById(`comment_${postId}`);
-            const cmtContent = cmtInput.value.trim();
-            if (!cmtContent) {
+        // 发表留言
+        async function addComment(postId) {
+            const input = document.getElementById(`cmt_${postId}`);
+            const content = input.value.trim();
+            if (!content) {
                 alert("留言不能为空！");
                 return;
             }
-            post.comments.push({
+            await db.collection("comments").add({
+                postId: postId,
                 from: currentUser,
-                content: cmtContent,
-                time: new Date().toLocaleString()
+                content: content
             });
-            saveData();
-            cmtInput.value = "";
-            renderPosts();
+            input.value = "";
+            // 刷新留言
+            const postDoc = await db.collection("posts").doc(postId).get();
+            loadComment(postId, postDoc.data().author);
+        }
+
+        // 加载留言 + 权限控制（仅作者、留言人可见）
+        async function loadComment(postId, postAuthor) {
+            const cmtBox = document.getElementById(`cmtList_${postId}`);
+            cmtBox.innerHTML = "";
+            const snapshot = await db.collection("comments").where("postId", "==", postId).get();
+            snapshot.forEach((doc) => {
+                const cmt = doc.data();
+                if(currentUser === postAuthor || currentUser === cmt.from){
+                    cmtBox.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
+                }
+            });
         }
     </script>
 </body>
