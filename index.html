@@ -6,9 +6,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="light">
     <title>EXPREDOM</title>
-    <!-- 引入Firebase官方SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+    <!-- 改用兼容全局语法的 Firebase 8.x 版本 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
         * {
             margin: 0;
@@ -127,7 +127,6 @@
     </style>
 </head>
 <body>
-    <!-- 主标题改为 EXPREDOM，保留加粗、居中样式 -->
     <div class="header">
         <p>EXPREDOM</p>
     </div>
@@ -150,18 +149,18 @@
     <div class="footer-tip">ღ留言仅作者与留言人双方可见</div>
 
     <script>
-        // ========= 【重点】粘贴你自己的 Firebase 配置代码 =========
+        // 你之前填好的 Firebase 配置已经保留
         const firebaseConfig = {
-          apiKey: "AIzaSyCp5d6c5qMgVJYWigy6WGa7cSAhQTdRI8s",
-          authDomain: "expredom-f600d.firebaseapp.com",
-          projectId: "expredom-f600d",
-          storageBucket: "expredom-f600d.firebasestorage.app",
-          messagingSenderId: "981038975048",
-          appId: "1:981038975048:web:3fdc69d5f15298d01d707d"
+            apiKey: "AIzaSyCp5d6c5qMgVJYWigy6WGa7cSAhQTdRI8s",
+            authDomain: "expredom-f600d.firebaseapp.com",
+            projectId: "expredom-f600d",
+            storageBucket: "expredom-f600d.firebasestorage.app",
+            messagingSenderId: "981038975048",
+            appId: "1:981038975048:web:3fdc69d5f15298d01d707d"
         };
 
-        // 初始化 Firebase
-        const app = firebase.initializeApp(firebaseConfig);
+        // 初始化 Firebase（和 8.x 版本兼容）
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         let currentUser = "";
 
@@ -200,7 +199,6 @@
         async function loadAllPosts() {
             const listDom = document.getElementById("postList");
             listDom.innerHTML = "";
-            // 按发布时间倒序展示
             const snapshot = await db.collection("posts").orderBy("createTime", "desc").get();
             snapshot.forEach(async (doc) => {
                 const postId = doc.id;
@@ -217,7 +215,6 @@
                     </div>
                 `;
                 listDom.innerHTML += html;
-                // 加载对应留言
                 loadComment(postId, postData.author);
             });
         }
@@ -236,12 +233,11 @@
                 content: content
             });
             input.value = "";
-            // 刷新留言
             const postDoc = await db.collection("posts").doc(postId).get();
             loadComment(postId, postDoc.data().author);
         }
 
-        // 加载留言 + 权限控制（仅作者、留言人可见）
+        // 加载留言 + 权限控制
         async function loadComment(postId, postAuthor) {
             const cmtBox = document.getElementById(`cmtList_${postId}`);
             cmtBox.innerHTML = "";
