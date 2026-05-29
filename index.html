@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="light">
+    <title>日常分享空间</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #000;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+            padding: 16px;
+        }
+        /* 背景兼容样式不变 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("bg.png");
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #fff;
+            z-index: -1;
+            -webkit-background-size: 100% 100%;
+        }
+        /* 容器：白底 + 黑色边框 */
+        .header, .login-box, .publish-box, .post-item, .comment-item {
+            background: #ffffff;
+            border: 1px solid #000000;
+            border-radius: 12px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 16px;
+            padding: 16px;
+            box-shadow: none;
+        }
+        .header p {
+            font-size: 20px;
+            line-height: 1.8;
+            font-weight: bold;
+        }
+        .login-box, .publish-box {
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: none;
+        }
+        .login-box h3, .publish-box h3 {
+            font-size: 17px;
+            margin-bottom: 10px;
+        }
+        /* 输入框、文本域：白底黑边框黑字 */
+        input, textarea {
+            width: 100%;
+            padding: 14px;
+            margin: 6px 0;
+            border: 1px solid #000000;
+            border-radius: 8px;
+            font-size: 16px;
+            -webkit-appearance: none;
+            background: #ffffff;
+            outline: none;
+        }
+        /* 按钮：白底黑边框黑字 */
+        button {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: 1px solid #000000;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #000;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:active {
+            background: #f0f0f0;
+        }
+        .post-item {
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: none;
+        }
+        .post-author {
+            font-weight: bold;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+        .post-content {
+            line-height: 1.7;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .comment-area {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #000;
+        }
+        .comment-item {
+            padding: 12px;
+            margin: 8px 0;
+            font-size: 15px;
+            box-shadow: none;
+        }
+        /* 底部提示文字 */
+        .footer-tip {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 14px;
+            color: #333;
+        }
+        .hide {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <p>相知无远近</p>
+        <p>万里尚为邻</p>
+    </div>
+
+    <div class="login-box" id="loginBox">
+        <h3>请输入昵称登录</h3>
+        <input type="text" id="username" placeholder="在这里输入你的昵称">
+        <button onclick="login()">进入空间</button>
+    </div>
+
+    <div id="mainPage" class="hide">
+        <div class="publish-box">
+            <h3>发布新分享</h3>
+            <textarea id="publishContent" rows="3" placeholder="记录日常、心情、想法..."></textarea>
+            <button onclick="addPost()">立即发布</button>
+        </div>
+
+        <div id="postList"></div>
+    </div>
+
+    <!-- 底部提示添加前缀符号 -->
+    <div class="footer-tip">ღ留言仅作者与留言人双方可见</div>
+
+    <script>
+        let currentUser = "";
+        let postData = JSON.parse(localStorage.getItem("sharePosts")) || [];
+
+        function login() {
+            const name = document.getElementById("username").value.trim();
+            if (!name) {
+                alert("请输入昵称！");
+                return;
+            }
+            currentUser = name;
+            document.getElementById("loginBox").classList.add("hide");
+            document.getElementById("mainPage").classList.remove("hide");
+            renderPosts();
+        }
+
+        function addPost() {
+            const content = document.getElementById("publishContent").value.trim();
+            if (!content) {
+                alert("内容不能为空！");
+                return;
+            }
+            const newPost = {
+                id: Date.now(),
+                author: currentUser,
+                content: content,
+                time: new Date().toLocaleString(),
+                comments: []
+            };
+            postData.unshift(newPost);
+            saveData();
+            document.getElementById("publishContent").value = "";
+            renderPosts();
+            window.scrollTo(0, 0);
+        }
+
+        function saveData() {
+            localStorage.setItem("sharePosts", JSON.stringify(postData));
+        }
+
+        function renderPosts() {
+            const listDom = document.getElementById("postList");
+            listDom.innerHTML = "";
+            postData.forEach(post => {
+                const postDom = document.createElement("div");
+                postDom.className = "post-item";
+                let html = `
+                    <div class="post-author">${post.author} · ${post.time}</div>
+                    <div class="post-content">${post.content}</div>
+                    <div class="comment-area">
+                        <textarea id="comment_${post.id}" rows="2" placeholder="写下私密留言"></textarea>
+                        <button onclick="addComment(${post.id})">发送留言</button>
+                `;
+                post.comments.forEach(cm => {
+                    if (currentUser === post.author || currentUser === cm.from) {
+                        html += `
+                            <div class="comment-item">
+                                ${cm.from}：${cm.content}
+                            </div>
+                        `;
+                    }
+                });
+                html += `</div>`;
+                postDom.innerHTML = html;
+                listDom.appendChild(postDom);
+            });
+        }
+
+        function addComment(postId) {
+            const post = postData.find(p => p.id === postId);
+            if (!postId) return;
+            const cmtInput = document.getElementById(`comment_${postId}`);
+            const cmtContent = cmtInput.value.trim();
+            if (!cmtContent) {
+                alert("留言不能为空！");
+                return;
+            }
+            post.comments.push({
+                from: currentUser,
+                content: cmtContent,
+                time: new Date().toLocaleString()
+            });
+            saveData();
+            cmtInput.value = "";
+            renderPosts();
+        }
+    </script>
+</body>
+</html>
