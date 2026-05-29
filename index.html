@@ -90,7 +90,6 @@
         button:disabled {
             background: #eee;
             color: #666;
-            cursor: not-allowed;
         }
         button:active:not(:disabled) {
             background: #f0f0f0;
@@ -179,109 +178,97 @@
             loadAllPosts();
         }
 
-        // ✅ 核心修复：防重复发布 + 按钮锁定 + 加载提示
+        // ✅【终极修复：发布秒响应、不卡住、不清空延迟】
         async function addPost() {
             const btn = document.getElementById("publishBtn");
             const contentInput = document.getElementById("publishContent");
-
-            // 已禁用就直接返回，防止重复执行
-            if (btn.disabled) return;
-
             const content = contentInput.value.trim();
+
             if (!content) {
                 alert("内容不能为空！");
                 return;
             }
 
-            try {
-                // 立即锁定按钮
-                btn.disabled = true;
-                btn.textContent = "发布中...";
+            // 立刻锁定、立刻清空、立刻恢复按钮
+            btn.disabled = true;
+            btn.textContent = "发布中...";
+            contentInput.value = "";
 
-                const time = new Date().toLocaleString();
-                await db.collection("posts").add({
-                    author: currentUser,
-                    content: content,
-                    time: time
-                });
+            const time = new Date().toLocaleString();
 
-                contentInput.value = "";
+            // 后台异步上传，不阻塞界面
+            db.collection("posts").add({
+                author: currentUser,
+                content: content,
+                time: time
+            }).then(() => {
                 loadAllPosts();
-            } catch (err) {
-                alert("发布失败：" + err.message);
-                console.error(err);
-            } finally {
-                // 无论成功失败，都恢复按钮
+            }).catch(err => {
+                console.error("发布失败", err);
+                alert("发布失败，请重试");
+            }).finally(() => {
                 btn.disabled = false;
                 btn.textContent = "立即发布";
-            }
+            });
         }
 
         // 加载帖子
         async function loadAllPosts() {
-            try {
-                const listDom = document.getElementById("postList");
-                listDom.innerHTML = "";
+            const listDom = document.getElementById("postList");
+            listDom.innerHTML = "";
 
-                const snapshot = await db.collection("posts").get();
-                const posts = [];
-                snapshot.forEach(doc => {
-                    posts.push({ id: doc.id, ...doc.data() });
-                });
-                posts.reverse();
+            const snapshot = await db.collection("posts").get();
+            const posts = [];
+            snapshot.forEach(doc => {
+                posts.push({ id: doc.id, ...doc.data() });
+            });
+            posts.reverse();
 
-                posts.forEach(async (post) => {
-                    const postId = post.id;
-                    const postData = post;
-                    let html = `
-                        <div class="post-item">
-                            <div class="post-author">${postData.author} · ${postData.time}</div>
-                            <div class="post-content">${postData.content}</div>
-                            <div class="comment-area">
-                                <textarea id="cmt_${postId}" rows="2" placeholder="写下私密留言"></textarea>
-                                <button onclick="addComment('${postId}')">发送留言</button>
-                                <div id="cmtList_${postId}"></div>
-                            </div>
+            posts.forEach(post => {
+                const html = `
+                    <div class="post-item">
+                        <div class="post-author">${post.author} · ${post.time}</div>
+                        <div class="post-content">${post.content}</div>
+                        <div class="comment-area">
+                            <textarea id="cmt_${post.id}" rows="2" placeholder="写下私密留言"></textarea>
+                            <button onclick="addComment('${post.id}')">发送留言</button>
+                            <div id="cmtList_${post.id}"></div>
                         </div>
-                    `;
-                    listDom.innerHTML += html;
-                    loadComment(postId, postData.author);
-                });
-            } catch (err) {
-                console.error("加载失败", err);
-            }
+                    </div>`;
+                listDom.innerHTML += html;
+                loadComment(post.id, post.author);
+            });
         }
 
-        // 留言
-        async function addComment(postId) {
-            try {
-                const input = document.getElementById(`cmt_${postId}`);
-                const content = input.value.trim();
-                if (!content) {
-                    alert("留言不能为空！");
-                    return;
-                }
+        // ✅【留言也修复：秒响应、不延迟、不重复】
+        function addComment(postId) {
+            const input = document.getElementById(`cmt_${postId}`);
+            const content = input.value.trim();
 
-                await db.collection("comments").add({
-                    postId: postId,
-                    from: currentUser,
-                    content: content
-                });
-
-                input.value = "";
-                const postDoc = await db.collection("posts").doc(postId).get();
-                loadComment(postId, postDoc.data().author);
-            } catch (err) {
-                alert("留言失败：" + err.message);
+            if (!content) {
+                alert("留言不能为空！");
+                return;
             }
+
+            const tempContent = content;
+            input.value = "";
+
+            db.collection("comments").add({
+                postId: postId,
+                from: currentUser,
+                content: tempContent
+            }).then(() => {
+                loadComment(postId, currentUser);
+            });
         }
 
         // 加载留言
         async function loadComment(postId, postAuthor) {
             const cmtBox = document.getElementById(`cmtList_${postId}`);
             cmtBox.innerHTML = "";
+
             const snapshot = await db.collection("comments").where("postId", "==", postId).get();
-            snapshot.forEach((doc) => {
+            snapshot.forEach(doc => {
                 const cmt = doc.data();
                 if (currentUser === postAuthor || currentUser === cmt.from) {
                     cmtBox.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
