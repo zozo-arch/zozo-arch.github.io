@@ -4,197 +4,604 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="light">
     <title>EXPREDOM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
-        * {margin:0;padding:0;box-sizing:border-box;font-family:system-ui,sans-serif;color:#000}
-        html,body {width:100%;height:100%;min-height:100%;overflow-x:hidden;padding:16px;position:fixed;top:0;left:0;right:0;bottom:0}
-        body::before {content:"";position:fixed;top:0;left:0;width:100vw;height:100vh;background-image:url("bg.png");background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;z-index:-1}
-        .header,.login-box,.publish-box,.post-item,.comment-item {background:#fff;border:1px solid #000;border-radius:12px}
-        .header {text-align:center;margin-bottom:16px;padding:16px}
-        .header p {font-size:20px;font-weight:bold}
-        .login-box,.publish-box {padding:16px;margin-bottom:12px}
-        input,textarea {width:100%;padding:14px;margin:6px 0;border:1px solid #000;border-radius:8px;font-size:16px;background:#fff}
-        button {width:100%;padding:14px;border:1px solid #000;border-radius:8px;background:#fff;font-size:16px;margin-bottom:8px}
-        button:disabled {background:#eee;color:#666}
-        .post-item {padding:16px;margin-bottom:12px}
-        .comment-area {margin-top:12px;padding-top:12px;border-top:1px dashed #000}
-        .comment-item {padding:12px;margin:8px 0}
-        .footer-tip {text-align:center;margin-top:20px;font-size:14px;color:#333}
-        .hide {display:none}
+        :root {
+            --ink: #1a1a1a;
+            --paper: #f5f0e8;
+            --cream: #ede8dc;
+            --accent: #c8502a;
+            --muted: #8a8070;
+            --border: #c8bfaf;
+            --white: #fdfaf5;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        html, body {
+            width:100%; min-height:100%;
+            background: var(--paper);
+            font-family: 'DM Sans', sans-serif;
+            color: var(--ink);
+            overflow-x: hidden;
+        }
+
+        /* 背景纹理 */
+        body::before {
+            content: "";
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background-image:
+                radial-gradient(ellipse at 20% 20%, rgba(200,80,42,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 80%, rgba(26,26,26,0.04) 0%, transparent 60%);
+            pointer-events: none; z-index: 0;
+        }
+
+        .page-wrap {
+            position: relative; z-index: 1;
+            max-width: 680px; margin: 0 auto;
+            padding: 24px 16px 60px;
+        }
+
+        /* 顶部标题 */
+        .header {
+            text-align: center;
+            padding: 32px 0 28px;
+            border-bottom: 1.5px solid var(--border);
+            margin-bottom: 28px;
+        }
+        .header h1 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 36px;
+            letter-spacing: 4px;
+            color: var(--ink);
+        }
+        .header .tagline {
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
+
+        /* 卡片基础 */
+        .card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 2px 3px 0 rgba(0,0,0,0.06);
+        }
+
+        .card h3 {
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 14px;
+            font-weight: 500;
+        }
+
+        /* 输入框 */
+        input, textarea {
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            background: var(--paper);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px;
+            color: var(--ink);
+            transition: border-color 0.2s;
+            resize: none;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--white);
+        }
+        input::placeholder, textarea::placeholder { color: var(--muted); }
+
+        /* 按钮 */
+        .btn {
+            display: inline-block;
+            padding: 11px 20px;
+            border: 1.5px solid var(--ink);
+            border-radius: 2px;
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            color: var(--ink);
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .btn:hover { background: var(--ink); color: var(--paper); }
+        .btn-primary {
+            background: var(--ink);
+            color: var(--paper);
+        }
+        .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-sm {
+            padding: 7px 14px;
+            font-size: 12px;
+        }
+
+        .btn-row {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-top: 2px;
+        }
+        .btn-row .btn { flex: 1; min-width: 100px; }
+
+        /* Tab 切换 */
+        .tab-row {
+            display: flex; gap: 0;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .tab {
+            flex: 1; padding: 10px;
+            background: transparent;
+            border: none;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .tab.active {
+            background: var(--ink);
+            color: var(--paper);
+        }
+
+        /* 帖子 */
+        .post-item {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 18px;
+            margin-bottom: 12px;
+            box-shadow: 2px 3px 0 rgba(0,0,0,0.05);
+            animation: fadeUp 0.3s ease both;
+        }
+        @keyframes fadeUp {
+            from { opacity:0; transform:translateY(8px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+
+        .post-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px;
+        }
+        .post-author {
+            font-size: 13px; font-weight: 500;
+            color: var(--accent);
+            letter-spacing: 0.3px;
+        }
+        .post-time {
+            font-size: 11px; color: var(--muted);
+        }
+        .post-content {
+            font-size: 15px;
+            line-height: 1.65;
+            color: var(--ink);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* 留言区 */
+        .comment-toggle {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+        }
+        .comment-toggle-btn {
+            background: none; border: none;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px;
+            color: var(--muted);
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            padding: 0;
+        }
+        .comment-toggle-btn:hover { color: var(--accent); }
+
+        .comment-area { margin-top: 12px; }
+        .comment-item {
+            background: var(--cream);
+            border-left: 2px solid var(--accent);
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            border-radius: 0 2px 2px 0;
+        }
+        .comment-from {
+            font-size: 11px; font-weight: 500;
+            color: var(--accent);
+            margin-bottom: 3px;
+            letter-spacing: 0.3px;
+        }
+        .comment-text { color: var(--ink); }
+
+        .comment-input-row {
+            display: flex; gap: 8px; align-items: flex-end;
+            margin-top: 10px;
+        }
+        .comment-input-row textarea {
+            flex: 1; margin: 0;
+            font-size: 13px;
+            padding: 8px 12px;
+            min-height: 38px;
+            max-height: 80px;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--muted);
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+        .empty-state .emoji { font-size: 28px; margin-bottom: 10px; }
+
+        /* 用户信息栏 */
+        .user-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 14px;
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            font-size: 13px;
+        }
+        .user-bar span { color: var(--muted); }
+        .user-bar b { color: var(--accent); }
+        .user-bar button {
+            background: none; border: none;
+            font-size: 11px; color: var(--muted);
+            cursor: pointer; text-decoration: underline;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        /* loading */
+        .loading {
+            text-align: center; padding: 30px;
+            color: var(--muted); font-size: 13px;
+            letter-spacing: 1px;
+        }
+
+        .footer-tip {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        .hide { display: none !important; }
     </style>
 </head>
 <body>
-    <div class="header"><p>EXPREDOM</p></div>
-    <div class="login-box" id="loginBox">
-        <h3>设置你的昵称（只需一次）</h3>
-        <input type="text" id="username" placeholder="输入你的昵称">
-        <button onclick="saveUser()">进入空间</button>
+<div class="page-wrap">
+
+    <!-- 顶部标题 -->
+    <div class="header">
+        <h1>EXPREDOM</h1>
+        <div class="tagline">每一个片刻，都值得被记录</div>
     </div>
-    <div id="mainPage" class="hide">
-        <div class="publish-box">
-            <h3>发布新分享</h3>
-            <textarea id="publishContent" rows="3" placeholder="记录心情..."></textarea>
-            <button id="publishBtn" onclick="addPost()">立即发布</button>
-            <button onclick="showMyHistory()">📝 我的历史</button>
-            <button onclick="showAllPosts()">🌐 查看全部</button>
+
+    <!-- 登录框 -->
+    <div class="card" id="loginBox">
+        <h3>进入空间</h3>
+        <input type="text" id="username" placeholder="取一个你喜欢的昵称" maxlength="20">
+        <input type="password" id="password" placeholder="设置一个密码（下次登录用）" maxlength="30">
+        <div class="btn-row">
+            <button class="btn btn-primary" onclick="saveUser()">进入 →</button>
         </div>
-        <div id="postList"></div>
+        <p style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6;">
+            * 昵称 + 密码组合是你的身份，下次用同样的昵称和密码即可找回你的分享记录。
+        </p>
     </div>
-    <div class="footer-tip">ღ 留言仅作者与留言人双方可见</div>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCp5d6c5qMgVJYWigy6WGa7cSAhQTdRI8s",
-            authDomain: "expredom-f600d.firebaseapp.com",
-            projectId: "expredom-f600d",
-            storageBucket: "expredom-f600d.firebasestorage.app",
-            messagingSenderId: "981038975048",
-            appId: "1:981038975048:web:3fdc69d5f15298d01d707d"
-        };
+    <!-- 主页面 -->
+    <div id="mainPage" class="hide">
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        let currentUser = localStorage.getItem("expredom_user");
+        <!-- 用户栏 -->
+        <div class="user-bar">
+            <div>你好，<b id="userNameDisplay"></b></div>
+            <button onclick="logout()">换个身份</button>
+        </div>
 
-        // 自动登录
-        window.onload = function() {
-            if (currentUser) {
-                document.getElementById("loginBox").classList.add("hide");
-                document.getElementById("mainPage").classList.remove("hide");
-                showAllPosts();
+        <!-- 发布框 -->
+        <div class="card">
+            <h3>分享此刻</h3>
+            <textarea id="publishContent" rows="3" placeholder="记录心情、故事、思考……"></textarea>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="publishBtn" onclick="addPost()">发布</button>
+            </div>
+        </div>
+
+        <!-- Tab 切换 -->
+        <div class="tab-row">
+            <button class="tab active" id="tabAll" onclick="switchTab('all')">全部分享</button>
+            <button class="tab" id="tabMine" onclick="switchTab('mine')">我的记录</button>
+        </div>
+
+        <!-- 帖子列表 -->
+        <div id="postList"></div>
+
+    </div>
+
+    <div class="footer-tip">ღ 留言仅留言双方可见</div>
+</div>
+
+<script>
+    // ─── Firebase 初始化 ───────────────────────────────────────────
+    const firebaseConfig = {
+        apiKey: "AIzaSyCp5d6c5qMgVJYWigy6WGa7cSAhQTdRI8s",
+        authDomain: "expredom-f600d.firebaseapp.com",
+        projectId: "expredom-f600d",
+        storageBucket: "expredom-f600d.firebasestorage.app",
+        messagingSenderId: "981038975048",
+        appId: "1:981038975048:web:3fdc69d5f15298d01d707d"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ─── 状态 ──────────────────────────────────────────────────────
+    let currentUser = null;
+    let currentTab = 'all';
+
+    // ─── XSS 防护：转义 HTML 特殊字符 ─────────────────────────────
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // ─── 简单密码哈希（不依赖后端）────────────────────────────────
+    async function hashPassword(pwd) {
+        const msgBuffer = new TextEncoder().encode(pwd);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ─── 登录 / 注册 ───────────────────────────────────────────────
+    async function saveUser() {
+        const name = document.getElementById("username").value.trim();
+        const pwd  = document.getElementById("password").value.trim();
+        if (!name) { alert("请输入昵称！"); return; }
+        if (!pwd)  { alert("请设置密码！"); return; }
+        if (pwd.length < 4) { alert("密码至少 4 位！"); return; }
+
+        const pwdHash = await hashPassword(pwd);
+
+        // 检查昵称是否已存在
+        const userDoc = await db.collection("users").doc(name).get();
+        if (userDoc.exists) {
+            // 已有账号，验证密码
+            if (userDoc.data().pwdHash !== pwdHash) {
+                alert("密码错误！如果忘记密码，请换一个昵称重新开始。");
+                return;
             }
+        } else {
+            // 新账号，注册
+            await db.collection("users").doc(name).set({ pwdHash, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         }
 
-        function saveUser() {
-            const name = document.getElementById("username").value.trim();
-            if (!name) { alert("请输入昵称！"); return; }
-            currentUser = name;
-            localStorage.setItem("expredom_user", name);
-            document.getElementById("loginBox").classList.add("hide");
-            document.getElementById("mainPage").classList.remove("hide");
-            showAllPosts();
+        currentUser = name;
+        localStorage.setItem("expredom_user", name);
+        localStorage.setItem("expredom_pwd", pwdHash);
+        enterMain();
+    }
+
+    // ─── 自动登录（本地缓存 + 密码验证）──────────────────────────
+    window.onload = async function() {
+        const savedUser = localStorage.getItem("expredom_user");
+        const savedPwd  = localStorage.getItem("expredom_pwd");
+        if (savedUser && savedPwd) {
+            const userDoc = await db.collection("users").doc(savedUser).get();
+            if (userDoc.exists && userDoc.data().pwdHash === savedPwd) {
+                currentUser = savedUser;
+                enterMain();
+                return;
+            }
+            // 验证失败，清除缓存
+            localStorage.removeItem("expredom_user");
+            localStorage.removeItem("expredom_pwd");
         }
+    };
 
-        // 显示全部帖子（后端排序）
-        async function showAllPosts() {
-            const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
-            renderPosts(snapshot);
+    function enterMain() {
+        document.getElementById("loginBox").classList.add("hide");
+        document.getElementById("mainPage").classList.remove("hide");
+        document.getElementById("userNameDisplay").textContent = currentUser;
+        switchTab('all');
+    }
+
+    function logout() {
+        currentUser = null;
+        localStorage.removeItem("expredom_user");
+        localStorage.removeItem("expredom_pwd");
+        document.getElementById("mainPage").classList.add("hide");
+        document.getElementById("loginBox").classList.remove("hide");
+        document.getElementById("username").value = "";
+        document.getElementById("password").value = "";
+    }
+
+    // ─── Tab 切换 ──────────────────────────────────────────────────
+    function switchTab(tab) {
+        currentTab = tab;
+        document.getElementById("tabAll").classList.toggle("active", tab === 'all');
+        document.getElementById("tabMine").classList.toggle("active", tab === 'mine');
+        if (tab === 'all') showAllPosts();
+        else showMyHistory();
+    }
+
+    // ─── 全部帖子 ──────────────────────────────────────────────────
+    async function showAllPosts() {
+        const box = document.getElementById("postList");
+        box.innerHTML = '<div class="loading">loading...</div>';
+        const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
+        renderPosts(snapshot.docs.map(d => ({ id: d.id, data: d.data() })));
+    }
+
+    // ─── 我的历史 ──────────────────────────────────────────────────
+    async function showMyHistory() {
+        const box = document.getElementById("postList");
+        box.innerHTML = '<div class="loading">loading...</div>';
+        const snapshot = await db.collection("posts").where("author", "==", currentUser).get();
+        const posts = snapshot.docs.map(d => ({ id: d.id, data: d.data() }));
+        posts.sort((a, b) => {
+            const tA = a.data.createdAt ? a.data.createdAt.toMillis() : 0;
+            const tB = b.data.createdAt ? b.data.createdAt.toMillis() : 0;
+            return tB - tA;
+        });
+        renderPosts(posts);
+    }
+
+    // ─── 渲染帖子列表 ──────────────────────────────────────────────
+    function renderPosts(posts) {
+        const box = document.getElementById("postList");
+        if (posts.length === 0) {
+            box.innerHTML = `<div class="empty-state"><div class="emoji">✦</div>还没有任何分享，来写第一条吧</div>`;
+            return;
         }
-
-        // ✅ 修复“我的历史”：不依赖后端排序，前端排序，避免索引问题
-        async function showMyHistory() {
-            const snapshot = await db.collection("posts")
-                .where("author", "==", currentUser)
-                .get();
-            
-            // 前端按时间倒序排序，不用后端索引
-            const posts = [];
-            snapshot.forEach(doc => {
-                posts.push({ id: doc.id, data: doc.data() });
-            });
-            posts.sort((a, b) => {
-                const timeA = a.data.createdAt ? a.data.createdAt.toDate() : new Date(a.data.time);
-                const timeB = b.data.createdAt ? b.data.createdAt.toDate() : new Date(b.data.time);
-                return timeB - timeA;
-            });
-
-            const box = document.getElementById("postList");
-            box.innerHTML = "";
-            posts.forEach(item => {
-                const p = item.data;
-                const postId = item.id;
-                box.innerHTML += `
-                <div class="post-item">
-                    <div><b>${p.author}</b> · ${p.time}</div>
-                    <div style="margin:8px 0">${p.content}</div>
-                    <div class="comment-area">
-                        <textarea id="cmt_${postId}" placeholder="写下私密留言"></textarea>
-                        <button onclick="addComment('${postId}')">发送留言</button>
-                        <div id="cmtBox_${postId}"></div>
+        box.innerHTML = "";
+        posts.forEach(({ id, data: p }, i) => {
+            const div = document.createElement("div");
+            div.className = "post-item";
+            div.style.animationDelay = `${i * 0.04}s`;
+            div.innerHTML = `
+                <div class="post-meta">
+                    <span class="post-author">${escapeHtml(p.author)}</span>
+                    <span class="post-time">${escapeHtml(p.time)}</span>
+                </div>
+                <div class="post-content">${escapeHtml(p.content)}</div>
+                <div class="comment-toggle">
+                    <button class="comment-toggle-btn" onclick="toggleComment('${id}', this)">
+                        ↳ 私密留言
+                    </button>
+                    <div id="commentArea_${id}" class="comment-area hide">
+                        <div id="cmtBox_${id}"></div>
+                        <div class="comment-input-row">
+                            <textarea id="cmt_${id}" placeholder="写下只有你们两人可见的留言…" rows="1"></textarea>
+                            <button class="btn btn-sm" onclick="addComment('${id}')">发送</button>
+                        </div>
                     </div>
                 </div>`;
-                loadComments(postId);
-            });
-        }
+            box.appendChild(div);
+        });
+    }
 
-        function renderPosts(snapshot) {
-            const box = document.getElementById("postList");
-            box.innerHTML = "";
-            snapshot.forEach(doc => {
-                const p = doc.data();
-                const postId = doc.id;
-                box.innerHTML += `
-                <div class="post-item">
-                    <div><b>${p.author}</b> · ${p.time}</div>
-                    <div style="margin:8px 0">${p.content}</div>
-                    <div class="comment-area">
-                        <textarea id="cmt_${postId}" placeholder="写下私密留言"></textarea>
-                        <button onclick="addComment('${postId}')">发送留言</button>
-                        <div id="cmtBox_${postId}"></div>
-                    </div>
-                </div>`;
-                loadComments(postId);
-            });
-        }
-
-        // ✅ 永不卡死的发布函数
-        function addPost() {
-            const btn = document.getElementById("publishBtn");
-            const contentInput = document.getElementById("publishContent");
-            const content = contentInput.value.trim();
-
-            if (!content) { alert("内容不能为空！"); return; }
-            if (btn.disabled) return;
-
-            btn.disabled = true;
-            btn.textContent = "发布中...";
-            contentInput.value = "";
-
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.textContent = "立即发布";
-            }, 500);
-
-            db.collection("posts").add({
-                author: currentUser,
-                content: content,
-                time: new Date().toLocaleString(),
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                showAllPosts();
-            }).catch(err => {
-                console.error("发布失败", err);
-            });
-        }
-
-        async function addComment(postId) {
-            const input = document.getElementById(`cmt_${postId}`);
-            const content = input.value.trim();
-            if (!content) { alert("留言不能为空！"); return; }
-            input.value = "";
-            await db.collection("comments").add({ postId, from: currentUser, content });
+    // ─── 展开/收起留言 ────────────────────────────────────────────
+    function toggleComment(postId, btn) {
+        const area = document.getElementById(`commentArea_${postId}`);
+        const isHidden = area.classList.contains("hide");
+        area.classList.toggle("hide", !isHidden);
+        if (isHidden) {
+            btn.textContent = "↳ 收起";
             loadComments(postId);
+        } else {
+            btn.textContent = "↳ 私密留言";
         }
+    }
 
-        async function loadComments(postId) {
-            const snapshot = await db.collection("comments").where("postId", "==", postId).get();
-            const box = document.getElementById(`cmtBox_${postId}`);
-            box.innerHTML = "";
-            snapshot.forEach(doc => {
-                const cmt = doc.data();
-                if (currentUser === cmt.from || currentUser === getPostAuthor(postId)) {
-                    box.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
-                }
-            });
-        }
+    // ─── 发布帖子 ──────────────────────────────────────────────────
+    function addPost() {
+        const btn = document.getElementById("publishBtn");
+        const contentInput = document.getElementById("publishContent");
+        const content = contentInput.value.trim();
+        if (!content) { alert("内容不能为空！"); return; }
+        if (btn.disabled) return;
 
-        async function getPostAuthor(postId) {
-            const doc = await db.collection("posts").doc(postId).get();
-            return doc.data().author;
+        btn.disabled = true;
+        btn.textContent = "发布中…";
+
+        db.collection("posts").add({
+            author: currentUser,
+            content: content,
+            time: new Date().toLocaleString('zh-CN', { hour12: false }),
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            contentInput.value = "";
+            btn.disabled = false;
+            btn.textContent = "发布";
+            if (currentTab === 'all') showAllPosts();
+            else showMyHistory();
+        }).catch(err => {
+            alert("发布失败，请稍后再试。");
+            btn.disabled = false;
+            btn.textContent = "发布";
+            console.error(err);
+        });
+    }
+
+    // ─── 发送留言 ──────────────────────────────────────────────────
+    async function addComment(postId) {
+        const input = document.getElementById(`cmt_${postId}`);
+        const content = input.value.trim();
+        if (!content) { alert("留言不能为空！"); return; }
+        input.value = "";
+        await db.collection("comments").add({
+            postId,
+            from: currentUser,
+            content,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        loadComments(postId);
+    }
+
+    // ─── 加载留言（修复异步 Bug）──────────────────────────────────
+    async function loadComments(postId) {
+        const box = document.getElementById(`cmtBox_${postId}`);
+        if (!box) return;
+
+        // ✅ 先获取帖子作者（await 修复原来的 Bug）
+        const postDoc = await db.collection("posts").doc(postId).get();
+        if (!postDoc.exists) return;
+        const postAuthor = postDoc.data().author;
+
+        const snapshot = await db.collection("comments")
+            .where("postId", "==", postId)
+            .get();
+
+        box.innerHTML = "";
+        let hasVisible = false;
+        snapshot.forEach(doc => {
+            const cmt = doc.data();
+            // 只有"留言者本人"或"帖子作者"才能看到这条留言
+            if (currentUser === cmt.from || currentUser === postAuthor) {
+                hasVisible = true;
+                box.innerHTML += `
+                    <div class="comment-item">
+                        <div class="comment-from">${escapeHtml(cmt.from)}</div>
+                        <div class="comment-text">${escapeHtml(cmt.content)}</div>
+                    </div>`;
+            }
+        });
+        if (!hasVisible) {
+            box.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:6px 0;">还没有留言</div>`;
         }
-    </script>
+    }
+</script>
 </body>
 </html>
