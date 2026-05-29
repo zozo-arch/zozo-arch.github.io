@@ -78,17 +78,46 @@
             showAllPosts();
         }
 
+        // 显示全部帖子（后端排序）
         async function showAllPosts() {
             const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
             renderPosts(snapshot);
         }
 
+        // ✅ 修复“我的历史”：不依赖后端排序，前端排序，避免索引问题
         async function showMyHistory() {
             const snapshot = await db.collection("posts")
                 .where("author", "==", currentUser)
-                .orderBy("createdAt", "desc")
                 .get();
-            renderPosts(snapshot);
+            
+            // 前端按时间倒序排序，不用后端索引
+            const posts = [];
+            snapshot.forEach(doc => {
+                posts.push({ id: doc.id, data: doc.data() });
+            });
+            posts.sort((a, b) => {
+                const timeA = a.data.createdAt ? a.data.createdAt.toDate() : new Date(a.data.time);
+                const timeB = b.data.createdAt ? b.data.createdAt.toDate() : new Date(b.data.time);
+                return timeB - timeA;
+            });
+
+            const box = document.getElementById("postList");
+            box.innerHTML = "";
+            posts.forEach(item => {
+                const p = item.data;
+                const postId = item.id;
+                box.innerHTML += `
+                <div class="post-item">
+                    <div><b>${p.author}</b> · ${p.time}</div>
+                    <div style="margin:8px 0">${p.content}</div>
+                    <div class="comment-area">
+                        <textarea id="cmt_${postId}" placeholder="写下私密留言"></textarea>
+                        <button onclick="addComment('${postId}')">发送留言</button>
+                        <div id="cmtBox_${postId}"></div>
+                    </div>
+                </div>`;
+                loadComments(postId);
+            });
         }
 
         function renderPosts(snapshot) {
@@ -111,7 +140,7 @@
             });
         }
 
-        // ✅ 永不卡死的发布函数：点击后立刻恢复按钮，后台默默上传
+        // ✅ 永不卡死的发布函数
         function addPost() {
             const btn = document.getElementById("publishBtn");
             const contentInput = document.getElementById("publishContent");
@@ -120,18 +149,15 @@
             if (!content) { alert("内容不能为空！"); return; }
             if (btn.disabled) return;
 
-            // 立刻锁定按钮、清空输入框
             btn.disabled = true;
             btn.textContent = "发布中...";
             contentInput.value = "";
 
-            // 立刻恢复按钮，后台继续上传
             setTimeout(() => {
                 btn.disabled = false;
                 btn.textContent = "立即发布";
             }, 500);
 
-            // 后台异步上传，不影响界面
             db.collection("posts").add({
                 author: currentUser,
                 content: content,
