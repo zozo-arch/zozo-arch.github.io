@@ -29,22 +29,21 @@
 <body>
     <div class="header"><p>EXPREDOM</p></div>
     <div class="login-box" id="loginBox">
-        <h3>请输入昵称登录</h3>
+        <h3>设置你的昵称（只需一次）</h3>
         <input type="text" id="username" placeholder="输入你的昵称">
-        <button onclick="login()">进入空间</button>
+        <button onclick="saveUser()">进入空间</button>
     </div>
     <div id="mainPage" class="hide">
         <div class="publish-box">
             <h3>发布新分享</h3>
             <textarea id="publishContent" rows="3" placeholder="记录心情..."></textarea>
             <button id="publishBtn" onclick="addPost()">立即发布</button>
-            <!-- ✅ 新增：我的历史按钮 -->
-            <button onclick="showMyHistory()">我的历史（只看自己）</button>
-            <button onclick="showAllPosts()">查看全部分享</button>
+            <button onclick="showMyHistory()">📝 我的历史</button>
+            <button onclick="showAllPosts()">🌐 查看全部</button>
         </div>
         <div id="postList"></div>
     </div>
-    <div class="footer-tip">ღ留言仅作者与留言人双方可见</div>
+    <div class="footer-tip">ღ 留言仅作者与留言人双方可见</div>
 
     <script>
         const firebaseConfig = {
@@ -58,25 +57,32 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        let currentUser = "";
+        let currentUser = localStorage.getItem("expredom_user");
 
-        // 登录
-        function login() {
+        // 自动登录
+        window.onload = function() {
+            if (currentUser) {
+                document.getElementById("loginBox").classList.add("hide");
+                document.getElementById("mainPage").classList.remove("hide");
+                showAllPosts();
+            }
+        }
+
+        function saveUser() {
             const name = document.getElementById("username").value.trim();
             if (!name) { alert("请输入昵称！"); return; }
             currentUser = name;
+            localStorage.setItem("expredom_user", name);
             document.getElementById("loginBox").classList.add("hide");
             document.getElementById("mainPage").classList.remove("hide");
             showAllPosts();
         }
 
-        // ✅ 显示全部帖子
         async function showAllPosts() {
             const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
             renderPosts(snapshot);
         }
 
-        // ✅【核心功能】只显示当前用户自己的历史
         async function showMyHistory() {
             const snapshot = await db.collection("posts")
                 .where("author", "==", currentUser)
@@ -85,21 +91,27 @@
             renderPosts(snapshot);
         }
 
-        // 统一渲染列表
         function renderPosts(snapshot) {
-            const postList = document.getElementById("postList");
-            postList.innerHTML = "";
+            const box = document.getElementById("postList");
+            box.innerHTML = "";
             snapshot.forEach(doc => {
-                const post = doc.data();
-                postList.innerHTML += `
+                const p = doc.data();
+                const postId = doc.id;
+                box.innerHTML += `
                 <div class="post-item">
-                    <div><b>${post.author}</b> · ${post.time}</div>
-                    <div style="margin:8px 0">${post.content}</div>
+                    <div><b>${p.author}</b> · ${p.time}</div>
+                    <div style="margin:8px 0">${p.content}</div>
+                    <div class="comment-area">
+                        <textarea id="cmt_${postId}" placeholder="写下私密留言"></textarea>
+                        <button onclick="addComment('${postId}')">发送留言</button>
+                        <div id="cmtBox_${postId}"></div>
+                    </div>
                 </div>`;
+                loadComments(postId);
             });
         }
 
-        // 发布（立即响应）
+        // ✅ 带超时保护的发布函数
         function addPost() {
             const btn = document.getElementById("publishBtn");
             const contentInput = document.getElementById("publishContent");
@@ -108,9 +120,17 @@
             if (!content) { alert("内容不能为空！"); return; }
             if (btn.disabled) return;
 
+            // 立刻锁定按钮并清空输入框
             btn.disabled = true;
             btn.textContent = "发布中...";
             contentInput.value = "";
+
+            // 设置5秒超时保护，防止一直卡住
+            const timeout = setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = "立即发布";
+                alert("网络有点慢，已为你恢复按钮，请稍后刷新查看是否发布成功");
+            }, 5000);
 
             db.collection("posts").add({
                 author: currentUser,
@@ -118,11 +138,41 @@
                 time: new Date().toLocaleString(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
+                clearTimeout(timeout);
                 showAllPosts();
+            }).catch(err => {
+                clearTimeout(timeout);
+                alert("发布失败：" + err.message);
             }).finally(() => {
                 btn.disabled = false;
                 btn.textContent = "立即发布";
             });
+        }
+
+        async function addComment(postId) {
+            const input = document.getElementById(`cmt_${postId}`);
+            const content = input.value.trim();
+            if (!content) { alert("留言不能为空！"); return; }
+            input.value = "";
+            await db.collection("comments").add({ postId, from: currentUser, content });
+            loadComments(postId);
+        }
+
+        async function loadComments(postId) {
+            const snapshot = await db.collection("comments").where("postId", "==", postId).get();
+            const box = document.getElementById(`cmtBox_${postId}`);
+            box.innerHTML = "";
+            snapshot.forEach(doc => {
+                const cmt = doc.data();
+                if (currentUser === cmt.from || currentUser === getPostAuthor(postId)) {
+                    box.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
+                }
+            });
+        }
+
+        async function getPostAuthor(postId) {
+            const doc = await db.collection("posts").doc(postId).get();
+            return doc.data().author;
         }
     </script>
 </body>
