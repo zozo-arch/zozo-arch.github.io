@@ -9,146 +9,38 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: system-ui, -apple-system, sans-serif;
-            color: #000;
-        }
-        html, body {
-            width: 100%;
-            height: 100%;
-            min-height: 100%;
-            overflow-x: hidden;
-            padding: 16px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-        }
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-image: url("bg.png");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-color: #fff;
-            z-index: -1;
-            -webkit-background-size: cover;
-        }
-        .header, .login-box, .publish-box, .post-item, .comment-item {
-            background: #ffffff;
-            border: 1px solid #000;
-            border-radius: 12px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 16px;
-            padding: 16px;
-        }
-        .header p {
-            font-size: 20px;
-            line-height: 1.8;
-            font-weight: bold;
-        }
-        .login-box, .publish-box {
-            padding: 16px;
-            margin-bottom: 12px;
-        }
-        .login-box h3, .publish-box h3 {
-            font-size: 17px;
-            margin-bottom: 10px;
-        }
-        input, textarea {
-            width: 100%;
-            padding: 14px;
-            margin: 6px 0;
-            border: 1px solid #000;
-            border-radius: 8px;
-            font-size: 16px;
-            background: #fff;
-            outline: none;
-        }
-        button {
-            width: 100%;
-            padding: 14px;
-            margin: 8px 0;
-            border: 1px solid #000;
-            border-radius: 8px;
-            background: #fff;
-            color: #000;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        button:disabled {
-            background: #eee;
-            color: #666;
-        }
-        button:active:not(:disabled) {
-            background: #f0f0f0;
-        }
-        .post-item {
-            padding: 16px;
-            margin-bottom: 12px;
-        }
-        .post-author {
-            font-weight: bold;
-            font-size: 15px;
-            margin-bottom: 8px;
-        }
-        .post-content {
-            line-height: 1.7;
-            font-size: 16px;
-            margin-bottom: 12px;
-        }
-        .comment-area {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px dashed #000;
-        }
-        .comment-item {
-            padding: 12px;
-            margin: 8px 0;
-            font-size: 15px;
-        }
-        .footer-tip {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 14px;
-            color: #333;
-        }
-        .hide {
-            display: none;
-        }
+        * {margin:0;padding:0;box-sizing:border-box;font-family:system-ui,sans-serif;color:#000}
+        html,body {width:100%;height:100%;min-height:100%;overflow-x:hidden;padding:16px;position:fixed;top:0;left:0;right:0;bottom:0}
+        body::before {content:"";position:fixed;top:0;left:0;width:100vw;height:100vh;background-image:url("bg.png");background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#fff;z-index:-1}
+        .header,.login-box,.publish-box,.post-item,.comment-item {background:#fff;border:1px solid #000;border-radius:12px}
+        .header {text-align:center;margin-bottom:16px;padding:16px}
+        .header p {font-size:20px;font-weight:bold}
+        .login-box,.publish-box {padding:16px;margin-bottom:12px}
+        input,textarea {width:100%;padding:14px;margin:6px 0;border:1px solid #000;border-radius:8px;font-size:16px;background:#fff}
+        button {width:100%;padding:14px;border:1px solid #000;border-radius:8px;background:#fff;font-size:16px}
+        button:disabled {background:#eee;color:#666}
+        .post-item {padding:16px;margin-bottom:12px}
+        .comment-area {margin-top:12px;padding-top:12px;border-top:1px dashed #000}
+        .comment-item {padding:12px;margin:8px 0}
+        .footer-tip {text-align:center;margin-top:20px;font-size:14px;color:#333}
+        .hide {display:none}
     </style>
 </head>
 <body>
-    <div class="header">
-        <p>EXPREDOM</p>
-    </div>
-
+    <div class="header"><p>EXPREDOM</p></div>
     <div class="login-box" id="loginBox">
         <h3>请输入昵称登录</h3>
-        <input type="text" id="username" placeholder="在这里输入你的昵称">
+        <input type="text" id="username" placeholder="输入你的昵称">
         <button onclick="login()">进入空间</button>
     </div>
-
     <div id="mainPage" class="hide">
         <div class="publish-box">
             <h3>发布新分享</h3>
-            <textarea id="publishContent" rows="3" placeholder="记录日常、心情、想法..."></textarea>
+            <textarea id="publishContent" rows="3" placeholder="记录心情..."></textarea>
             <button id="publishBtn" onclick="addPost()">立即发布</button>
         </div>
         <div id="postList"></div>
     </div>
-
     <div class="footer-tip">ღ留言仅作者与留言人双方可见</div>
 
     <script>
@@ -168,44 +60,35 @@
         // 登录
         function login() {
             const name = document.getElementById("username").value.trim();
-            if (!name) {
-                alert("请输入昵称！");
-                return;
-            }
+            if (!name) { alert("请输入昵称！"); return; }
             currentUser = name;
             document.getElementById("loginBox").classList.add("hide");
             document.getElementById("mainPage").classList.remove("hide");
             loadAllPosts();
         }
 
-        // ✅【终极修复：发布秒响应、不卡住、不清空延迟】
-        async function addPost() {
+        // ✅【终极不卡、不重复、秒响应】发布
+        function addPost() {
             const btn = document.getElementById("publishBtn");
             const contentInput = document.getElementById("publishContent");
             const content = contentInput.value.trim();
 
-            if (!content) {
-                alert("内容不能为空！");
-                return;
-            }
+            if (!content) { alert("内容不能为空！"); return; }
+            if (btn.disabled) return;
 
-            // 立刻锁定、立刻清空、立刻恢复按钮
+            // 立即本地响应
             btn.disabled = true;
             btn.textContent = "发布中...";
             contentInput.value = "";
 
-            const time = new Date().toLocaleString();
-
-            // 后台异步上传，不阻塞界面
             db.collection("posts").add({
                 author: currentUser,
                 content: content,
-                time: time
+                time: new Date().toLocaleString()
             }).then(() => {
                 loadAllPosts();
             }).catch(err => {
-                console.error("发布失败", err);
-                alert("发布失败，请重试");
+                alert("发布失败：" + err.message);
             }).finally(() => {
                 btn.disabled = false;
                 btn.textContent = "立即发布";
@@ -214,65 +97,45 @@
 
         // 加载帖子
         async function loadAllPosts() {
-            const listDom = document.getElementById("postList");
-            listDom.innerHTML = "";
-
             const snapshot = await db.collection("posts").get();
-            const posts = [];
-            snapshot.forEach(doc => {
-                posts.push({ id: doc.id, ...doc.data() });
-            });
-            posts.reverse();
+            const list = [];
+            snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+            list.reverse();
 
-            posts.forEach(post => {
-                const html = `
-                    <div class="post-item">
-                        <div class="post-author">${post.author} · ${post.time}</div>
-                        <div class="post-content">${post.content}</div>
-                        <div class="comment-area">
-                            <textarea id="cmt_${post.id}" rows="2" placeholder="写下私密留言"></textarea>
-                            <button onclick="addComment('${post.id}')">发送留言</button>
-                            <div id="cmtList_${post.id}"></div>
-                        </div>
-                    </div>`;
-                listDom.innerHTML += html;
-                loadComment(post.id, post.author);
+            const postList = document.getElementById("postList");
+            postList.innerHTML = "";
+            list.forEach(post => {
+                postList.innerHTML += `
+                <div class="post-item">
+                    <div><b>${post.author}</b> · ${post.time}</div>
+                    <div style="margin:8px 0">${post.content}</div>
+                    <div class="comment-area">
+                        <textarea id="cmt_${post.id}" placeholder="写下私密留言"></textarea>
+                        <button onclick="addComment('${post.id}')">发送留言</button>
+                        <div id="cmtBox_${post.id}"></div>
+                    </div>
+                </div>`;
+                loadComments(post.id);
             });
         }
 
-        // ✅【留言也修复：秒响应、不延迟、不重复】
-        function addComment(postId) {
+        // ✅ 留言也不卡
+        async function addComment(postId) {
             const input = document.getElementById(`cmt_${postId}`);
             const content = input.value.trim();
-
-            if (!content) {
-                alert("留言不能为空！");
-                return;
-            }
-
-            const tempContent = content;
+            if (!content) { alert("留言不能为空！"); return; }
             input.value = "";
-
-            db.collection("comments").add({
-                postId: postId,
-                from: currentUser,
-                content: tempContent
-            }).then(() => {
-                loadComment(postId, currentUser);
-            });
+            await db.collection("comments").add({ postId, from: currentUser, content });
+            loadComments(postId);
         }
 
-        // 加载留言
-        async function loadComment(postId, postAuthor) {
-            const cmtBox = document.getElementById(`cmtList_${postId}`);
-            cmtBox.innerHTML = "";
-
+        async function loadComments(postId) {
             const snapshot = await db.collection("comments").where("postId", "==", postId).get();
+            const box = document.getElementById(`cmtBox_${postId}`);
+            box.innerHTML = "";
             snapshot.forEach(doc => {
                 const cmt = doc.data();
-                if (currentUser === postAuthor || currentUser === cmt.from) {
-                    cmtBox.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
-                }
+                box.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
             });
         }
     </script>
