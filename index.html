@@ -669,10 +669,14 @@
             // 渲染留言
             const cmtDiv = document.createElement("div");
             cmtDiv.className = "comment-item";
+            // 用data属性存commentFrom，避免昵称含特殊字符破坏onclick
+            cmtDiv.dataset.commentFrom = cmt.from;
+            cmtDiv.dataset.cmtId = cmtId;
+            cmtDiv.dataset.postId = postId;
             cmtDiv.innerHTML = `
                 <div class="comment-from">${escapeHtml(cmt.from)}</div>
                 <div class="comment-text">${escapeHtml(cmt.content)}</div>
-                <button class="reply-btn" onclick="toggleReplyInput('${cmtId}', '${postId}', this)">↩ 回复</button>
+                <button class="reply-btn" onclick="toggleReplyInput(this)">↩ 回复</button>
                 <div id="replies_${cmtId}">
                     ${replies.map(r => `
                         <div class="reply-item">
@@ -682,7 +686,7 @@
                 </div>
                 <div id="replyInput_${cmtId}" class="reply-input-row hide">
                     <textarea id="replyTxt_${cmtId}" placeholder="回复 ${escapeHtml(cmt.from)}…" rows="1"></textarea>
-                    <button class="btn btn-sm" onclick="sendReply('${cmtId}', '${postId}')">发送</button>
+                    <button class="btn btn-sm" onclick="sendReply(this)">发送</button>
                 </div>`;
             box.appendChild(cmtDiv);
         });
@@ -693,7 +697,9 @@
     }
 
     // ─── 展开/收起回复输入框 ──────────────────────────────────────
-    function toggleReplyInput(cmtId, postId, btn) {
+    function toggleReplyInput(btn) {
+        const cmtDiv = btn.closest(".comment-item");
+        const cmtId = cmtDiv.dataset.cmtId;
         const row = document.getElementById(`replyInput_${cmtId}`);
         const isHidden = row.classList.contains("hide");
         row.classList.toggle("hide", !isHidden);
@@ -704,23 +710,23 @@
     }
 
     // ─── 发送回复 ─────────────────────────────────────────────────
-    async function sendReply(cmtId, postId) {
+    async function sendReply(btn) {
+        const cmtDiv = btn.closest(".comment-item");
+        const cmtId = cmtDiv.dataset.cmtId;
+        const postId = cmtDiv.dataset.postId;
+        const commentFrom = cmtDiv.dataset.commentFrom; // 从data属性读取，不含特殊字符问题
         const input = document.getElementById(`replyTxt_${cmtId}`);
         const content = input.value.trim();
         if (!content) { alert("回复不能为空！"); return; }
         input.value = "";
-        // 取得留言者昵称，存入回复，用于可见性判断
-        const cmtDoc = await db.collection("comments").doc(cmtId).get();
-        const commentFrom = cmtDoc.exists ? cmtDoc.data().from : "";
         await db.collection("replies").add({
             postId,
             commentId: cmtId,
-            commentFrom,   // 留言者，用于判断谁能看到这条回复
+            commentFrom,   // 留言者，用于可见性判断
             from: currentUser,
             content,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        // 刷新当前留言区
         loadComments(postId);
     }
 </script>
