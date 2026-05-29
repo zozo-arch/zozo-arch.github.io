@@ -22,7 +22,6 @@
             min-height: 100%;
             overflow-x: hidden;
             padding: 16px;
-            /* 修复键盘挤压问题 */
             position: fixed;
             top: 0;
             left: 0;
@@ -37,7 +36,6 @@
             width: 100vw;
             height: 100vh;
             background-image: url("bg.png");
-            /* 核心修改：确保背景图完全覆盖并保持比例 */
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -47,14 +45,13 @@
         }
         .header, .login-box, .publish-box, .post-item, .comment-item {
             background: #ffffff;
-            border: 1px solid #000000;
+            border: 1px solid #000;
             border-radius: 12px;
         }
         .header {
             text-align: center;
             margin-bottom: 16px;
             padding: 16px;
-            box-shadow: none;
         }
         .header p {
             font-size: 20px;
@@ -64,7 +61,6 @@
         .login-box, .publish-box {
             padding: 16px;
             margin-bottom: 12px;
-            box-shadow: none;
         }
         .login-box h3, .publish-box h3 {
             font-size: 17px;
@@ -74,20 +70,19 @@
             width: 100%;
             padding: 14px;
             margin: 6px 0;
-            border: 1px solid #000000;
+            border: 1px solid #000;
             border-radius: 8px;
             font-size: 16px;
-            -webkit-appearance: none;
-            background: #ffffff;
+            background: #fff;
             outline: none;
         }
         button {
             width: 100%;
             padding: 14px;
             margin: 8px 0;
-            border: 1px solid #000000;
+            border: 1px solid #000;
             border-radius: 8px;
-            background: #ffffff;
+            background: #fff;
             color: #000;
             font-size: 16px;
             cursor: pointer;
@@ -98,7 +93,6 @@
         .post-item {
             padding: 16px;
             margin-bottom: 12px;
-            box-shadow: none;
         }
         .post-author {
             font-weight: bold;
@@ -119,7 +113,6 @@
             padding: 12px;
             margin: 8px 0;
             font-size: 15px;
-            box-shadow: none;
         }
         .footer-tip {
             text-align: center;
@@ -168,6 +161,7 @@
         const db = firebase.firestore();
         let currentUser = "";
 
+        // 登录
         function login() {
             const name = document.getElementById("username").value.trim();
             if (!name) {
@@ -180,70 +174,98 @@
             loadAllPosts();
         }
 
+        // ✅ 修复发布按钮（核心修复在这里！）
         async function addPost() {
-            const content = document.getElementById("publishContent").value.trim();
-            if (!content) {
-                alert("内容不能为空！");
-                return;
+            try {
+                const content = document.getElementById("publishContent").value.trim();
+                if (!content) {
+                    alert("内容不能为空！");
+                    return;
+                }
+                const time = new Date().toLocaleString();
+
+                await db.collection("posts").add({
+                    author: currentUser,
+                    content: content,
+                    time: time
+                });
+
+                document.getElementById("publishContent").value = "";
+                loadAllPosts();
+            } catch (err) {
+                alert("发布失败：" + err.message);
+                console.error(err);
             }
-            const time = new Date().toLocaleString();
-            await db.collection("posts").add({
-                author: currentUser,
-                content: content,
-                time: time,
-                createTime: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            document.getElementById("publishContent").value = "";
-            loadAllPosts();
         }
 
+        // 加载帖子
         async function loadAllPosts() {
-            const listDom = document.getElementById("postList");
-            listDom.innerHTML = "";
-            const snapshot = await db.collection("posts").orderBy("createTime", "desc").get();
-            snapshot.forEach(async (doc) => {
-                const postId = doc.id;
-                const postData = doc.data();
-                let html = `
-                    <div class="post-item">
-                        <div class="post-author">${postData.author} · ${postData.time}</div>
-                        <div class="post-content">${postData.content}</div>
-                        <div class="comment-area">
-                            <textarea id="cmt_${postId}" rows="2" placeholder="写下私密留言"></textarea>
-                            <button onclick="addComment('${postId}')">发送留言</button>
-                            <div id="cmtList_${postId}"></div>
+            try {
+                const listDom = document.getElementById("postList");
+                listDom.innerHTML = "";
+
+                const snapshot = await db.collection("posts").get();
+                const posts = [];
+                snapshot.forEach(doc => {
+                    posts.push({ id: doc.id, ...doc.data() });
+                });
+
+                posts.reverse();
+
+                posts.forEach(async (post) => {
+                    const postId = post.id;
+                    const postData = post;
+                    let html = `
+                        <div class="post-item">
+                            <div class="post-author">${postData.author} · ${postData.time}</div>
+                            <div class="post-content">${postData.content}</div>
+                            <div class="comment-area">
+                                <textarea id="cmt_${postId}" rows="2" placeholder="写下私密留言"></textarea>
+                                <button onclick="addComment('${postId}')">发送留言</button>
+                                <div id="cmtList_${postId}"></div>
+                            </div>
                         </div>
-                    </div>
-                `;
-                listDom.innerHTML += html;
-                loadComment(postId, postData.author);
-            });
-        }
-
-        async function addComment(postId) {
-            const input = document.getElementById(`cmt_${postId}`);
-            const content = input.value.trim();
-            if (!content) {
-                alert("留言不能为空！");
-                return;
+                    `;
+                    listDom.innerHTML += html;
+                    loadComment(postId, postData.author);
+                });
+            } catch (err) {
+                console.error("加载失败", err);
             }
-            await db.collection("comments").add({
-                postId: postId,
-                from: currentUser,
-                content: content
-            });
-            input.value = "";
-            const postDoc = await db.collection("posts").doc(postId).get();
-            loadComment(postId, postDoc.data().author);
         }
 
+        // 留言
+        async function addComment(postId) {
+            try {
+                const input = document.getElementById(`cmt_${postId}`);
+                const content = input.value.trim();
+                if (!content) {
+                    alert("留言不能为空！");
+                    return;
+                }
+
+                await db.collection("comments").add({
+                    postId: postId,
+                    from: currentUser,
+                    content: content
+                });
+
+                input.value = "";
+                const postDoc = await db.collection("posts").doc(postId).get();
+                loadComment(postId, postDoc.data().author);
+            } catch (err) {
+                alert("留言失败：" + err.message);
+            }
+        }
+
+        // 加载留言
         async function loadComment(postId, postAuthor) {
             const cmtBox = document.getElementById(`cmtList_${postId}`);
             cmtBox.innerHTML = "";
             const snapshot = await db.collection("comments").where("postId", "==", postId).get();
             snapshot.forEach((doc) => {
                 const cmt = doc.data();
-                if(currentUser === postAuthor || currentUser === cmt.from){
+                if (currentUser === postAuthor || currentUser === cmt.from) {
                     cmtBox.innerHTML += `<div class="comment-item">${cmt.from}：${cmt.content}</div>`;
                 }
             });
